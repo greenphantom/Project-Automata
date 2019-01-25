@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import sqlite3
 import sys
 from sqlite3 import Error
@@ -7,11 +8,6 @@ from subprocess import PIPE, Popen
 
 
 def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by the db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
     try:
         conn = sqlite3.connect(db_file)
         return conn
@@ -22,11 +18,6 @@ def create_connection(db_file):
 
 
 def select_all_commands(conn):
-    """
-    Query all rows in the tasks table
-    :param conn: the Connection object
-    :return:
-    """
     cur = conn.cursor()
     cur.execute("SELECT * FROM Command")
 
@@ -37,19 +28,33 @@ def select_all_commands(conn):
 
 def select_code_for_command(conn):
     cur = conn.cursor()
-    cur.execute("SELECT function FROM command")
+    cur.execute("SELECT name,function FROM command")
 
     rows = cur.fetchall()
-    return scrub_text(rows)
+    function_map = {}
+    for i,row in enumerate(rows):
+        function_name = rows[i][0] # Maps name of the command with its function
+        function = rows[i][1]
+        function_map[function_name] = function
+    return function_map
 
-def scrub_text(rows):
-    scrubbed_text = []
-    for row in rows:
-        p = str(row)[2:-3] # removes the "('" part from the beginning and the ")'" from the end
-        s = p.replace('\\n','\n')
-        s = s.replace('\\t','\t')
-        scrubbed_text.append(s) 
-    return scrubbed_text  
+def scrub_text(row,front_clip = 2,back_clip=-3):
+    p = str(row)[front_clip:back_clip] # removes the "('" part from the beginning and the ")'" from the end
+    s = p.replace('\\n','\n')
+    s = s.replace('\\t','\t')
+    s = s.replace('\\r','\r')
+    return s
+
+def dump_bin():
+    folder = os.getcwd()+"\\bin"
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path): shutil.rmtree(file_path)
+        except Exception as e:
+            print(e)
 
 def main():
     database = os.getcwd() + "\\automata.db"
@@ -57,23 +62,29 @@ def main():
     # create a database connection
     conn = create_connection(database)
     with conn:
-        # print("1. Query task by priority:")
-        # select_command_by_name(conn, )
-
-        test = select_code_for_command(conn)
-        file = open(os.getcwd()+"\\bin\\test.py","w+")
-        for result in test:
-            file.write(result)
-        file.close()
+        function_map = select_code_for_command(conn)
+        for key,value in function_map.items():
+            file = open(os.getcwd()+"\\bin\\"+key+".py","w+")
+            file.write(value)
+            file.close()
+    return function_map
 
 
 if __name__ == '__main__':
-    main()
-    name = os.getcwd()+"\\bin\\test.py"
-    process = Popen(['python',name],stdout=PIPE,stderr=PIPE)
-    stdout, stderr = process.communicate()
-    if stderr:
-        print('Error from file ',name+':\n',stderr)
-    if stdout:
-        print('Output from file ',name+':\n',stdout)
-    #os.execlp(os.getcwd()+"\\bin\\test.py",'test.py')
+    fm = main()
+    for k,v in fm.items():
+        name = os.getcwd()+"\\bin\\"+k+".py"
+        process = Popen(['python',name],stdout=PIPE,stderr=PIPE)
+        stdout, stderr = process.communicate()
+        if stderr:
+            print('Error from file',name+':\n\n',scrub_text(stderr,back_clip=-1))
+        if stdout:
+            print('Output from file',name+':\n'+scrub_text(stdout))
+    prompt = input('Delete generates content? (Y|N):')
+    if str(prompt).lower() == 'y':
+        dump_bin()
+        print("Bin's contents deleted!")
+    else:
+        print('Content saved')
+    
+    
