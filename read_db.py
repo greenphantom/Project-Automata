@@ -8,9 +8,9 @@ import time
 from sqlite3 import Error
 from subprocess import PIPE, Popen
 
-from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtWidgets import QApplication, QDialog
-from PyQt5.uic import loadUi
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.uic import *
 
 import schedule
 
@@ -18,23 +18,82 @@ import schedule
 def get_date():
     return str(datetime.datetime.now().ctime())
 
-class InputForm(QDialog):
+class MainMenu(QDialog):
     def __init__(self):
+        super(MainMenu,self).__init__()
+        loadUi('main_layout.ui',self)
+        self.setWindowTitle('Automata Script Manager')
+        self.inputDialog = InputForm(self)
+        self.viewDialog = ViewMenu(self)
+    
+    @pyqtSlot()
+    def on_create_button_clicked(self):
+        self.inputDialog.show()
+        self.close()
+
+    @pyqtSlot()
+    def on_view_button_clicked(self):
+        self.viewDialog.show()
+        self.close()
+
+class InputForm(QDialog):
+    def __init__(self,parent=None):
         super(InputForm,self).__init__()
         loadUi('input_layout.ui',self)
         self.setWindowTitle('Input Form')
         self.create_field.setText(get_date())
+        self.dialog=parent
     
     @pyqtSlot()
-    def on_pushButton_clicked(self):
+    def on_create_button_clicked(self):
         command = Command(self.name.text(),"-1",self.param.text(),self.desc.toPlainText(),self.create_field.text(),self.call_field.text(),self.alias_field.text(),self.script.toPlainText(),str(self.comboBox.currentText()))
         conn = create_connection(os.getcwd() + "\\automata.db")
         with conn:
             create_command(conn,command)
         self.close()
+    
+    @pyqtSlot()
+    def on_back_button_clicked(self):
+        self.dialog.show()
+        self.close()
+
+class ViewMenu(QDialog):
+    def __init__(self,parent=None):
+        super(ViewMenu,self).__init__()
+        loadUi('view_layout.ui',self)
+        self.dialog=parent
+        self.setWindowTitle('Script Viewer')
+        self.listWidget.resize(300,120)
+        self.commands = select_all_commands(create_connection())
+        for c in self.commands:
+            self.listWidget.addItem(c.name)
+            
+        self.listWidget.setWindowTitle('Scripts')
+        self.listWidget.itemClicked.connect(self.click_item)
+
+    def click_item(self,item):
+        com = list(filter((lambda c: c.name == str(item.text())),self.commands))
+        self.updateForm = UpdateForm(com[0],self)
+        self.updateForm.show()
+        self.close()
+
+    def refresh(self):
+        self.listWidget.clear()
+        self.commands = select_all_commands(create_connection())
+        for c in self.commands:
+            self.listWidget.addItem(c.name)
+            
+        self.listWidget.setWindowTitle('Scripts')
+        self.listWidget.itemClicked.connect(self.click_item)
+       
+
+    @pyqtSlot()
+    def on_back_button_clicked(self):
+        self.dialog.show()
+        self.close()
 
 class UpdateForm(QDialog):
-    def __init__(self,command):
+    def __init__(self,command,parent=None):
         super(UpdateForm,self).__init__()
         loadUi('update_layout.ui',self)
         self.setWindowTitle('Update Form')
@@ -46,13 +105,51 @@ class UpdateForm(QDialog):
         self.script.setText(command.function)
         self.alias_field.setText(command.alias)
         self.id = command.id
-    
-    @pyqtSlot()
-    def on_pushButton_clicked(self):
+        self.dialog=parent
+        self.command=command
+
+    def refresh(self):
+        self.update()
+
+    def update(self):
         command = Command(self.name.text(),self.id,self.param.text(),self.desc.toPlainText(),self.create_field.text(),self.call_field.text(),self.alias_field.text(),self.script.toPlainText(),str(self.comboBox.currentText()))
         conn = create_connection(os.getcwd() + "\\automata.db")
         with conn:
             update_command(conn,command)
+        self.command = command
+    
+    @pyqtSlot()
+    def on_update_button_clicked(self):
+        self.update()
+        QMessageBox.information(self, "Update to script", self.name.text()+" is now updated!" )
+        self.refresh()
+
+    @pyqtSlot()
+    def on_run_button_clicked(self):
+        # Updates the script when the user trys to run it
+        self.update()
+        self.call_field.setText(get_date())
+        run_script(self.command.name)
+        QMessageBox.information(self, "Run script", self.name.text()+" ran in the terminal." )
+        self.command = select_command_by_name(create_connection(),self.command.name)[0]
+        self.refresh()
+
+    @pyqtSlot()
+    def on_delete_button_clicked(self):
+        reply = QMessageBox.question(self, 'Delete Confirmation', "Are you sure you'd like to remove this script?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            conn = create_connection(os.getcwd() + "\\automata.db")
+            with conn:
+                delete_command_by_id(conn,self.id)
+
+            self.dialog.refresh()
+            self.close()
+            self.dialog.show()
+            
+    @pyqtSlot()
+    def on_back_button_clicked(self):
+        self.dialog.refresh()
+        self.dialog.show()
         self.close()
 
 class Command():
@@ -131,18 +228,27 @@ def update_call_by_name(conn, name):
     cur.execute(sql)
 
 def delete_command_by_name(conn, name):
-    sql = 'Delete from command where name=?'
+    sql = 'DELETE FROM COMMAND WHERE name=?;'
     cur = conn.cursor()
     cur.execute(sql,(name,))
+
+def delete_command_by_id(conn, id):
+    sql = 'DELETE FROM COMMAND WHERE id=?;'
+    cur = conn.cursor()
+    cur.execute(sql,(id,))
 
 def select_all_commands(conn):
     cur = conn.cursor()
     cur.execute("SELECT * FROM Command")
 
+    results = []
     rows = cur.fetchall()
 
-    for row in rows:
-        print(row)
+    for i,row in enumerate(rows):
+        com = Command(rows[i][0],rows[i][1],rows[i][2],rows[i][3],rows[i][4],rows[i][5],rows[i][6],rows[i][7],rows[i][8])
+        results.append(com)
+
+    return results
 
 def select_command_by_name(conn,name,pnt=False):
     cur = conn.cursor()
@@ -221,7 +327,7 @@ def execute_bin_contents(conn,rm=True):
             update_call_by_name(conn,item.replace('.py',''))
 
     if (rm):
-        print('\nDeleting bin contents...')
+        print('Deleting bin contents...\n')
         dump_bin()
 
 def add_command():
@@ -229,10 +335,16 @@ def add_command():
     widget = InputForm()
     widget.show()
     sys.exit(app.exec()) 
+    
+def view_GUI():
+    app = QApplication(sys.argv)
+    widget = ViewMenu(MainMenu())
+    widget.show()
+    sys.exit(app.exec()) 
 
 def change_command(command):
     app = QApplication(sys.argv)
-    widget = UpdateForm(command)
+    widget = UpdateForm(command,MainMenu())
     widget.show()
     sys.exit(app.exec()) 
 
@@ -271,8 +383,14 @@ def run_update_GUI_test():
     change_command(res[0])
 
 
+def init_MainMenu():
+    app = QApplication(sys.argv)
+    widget = MainMenu()
+    widget.show()
+    sys.exit(app.exec())
+
 # test_CRUD()
 # run_execution_test()
-# run_update_GUI_test()
+#run_update_GUI_test()
 # add_command()
-
+init_MainMenu()
