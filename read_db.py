@@ -50,6 +50,8 @@ class InputForm(QDialog):
         conn = create_connection(os.getcwd() + "\\automata.db")
         with conn:
             create_command(conn,command)
+        QMessageBox.information(self, "Script Created!", self.name.text()+" was successfully created." )
+        self.dialog.show()
         self.close()
     
     @pyqtSlot()
