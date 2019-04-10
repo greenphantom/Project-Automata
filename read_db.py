@@ -4,6 +4,11 @@ import re
 import shutil
 import sqlite3
 import sys
+# test_CRUD()
+# run_execution_test()
+#run_update_GUI_test()
+# add_command()
+import threading
 import time
 from sqlite3 import Error
 from subprocess import PIPE, Popen
@@ -36,6 +41,11 @@ class MainMenu(QDialog):
         self.viewDialog.show()
         self.close()
 
+    @pyqtSlot()
+    def on_close_button_clicked(self):
+        sys.exit()
+        self.close()
+
 class InputForm(QDialog):
     def __init__(self,parent=None):
         super(InputForm,self).__init__()
@@ -63,16 +73,15 @@ class ViewMenu(QDialog):
         loadUi('view_layout.ui',self)
         self.dialog=parent
         self.setWindowTitle('Script Viewer')
-        self.listWidget.resize(300,120)
         self.commands = select_all_commands(create_connection())
-        for c in self.commands:
-            self.listWidget.addItem(c.name)
+        for i,c in enumerate(self.commands):
+            self.listWidget.addItem(str(i+1)+".   "+c.name)
             
         self.listWidget.setWindowTitle('Scripts')
         self.listWidget.itemClicked.connect(self.click_item)
 
     def click_item(self,item):
-        com = list(filter((lambda c: c.name == str(item.text())),self.commands))
+        com = list(filter((lambda c: c.name in (str(item.text()))),self.commands))
         self.updateForm = UpdateForm(com[0],self)
         self.updateForm.show()
         self.close()
@@ -80,8 +89,8 @@ class ViewMenu(QDialog):
     def refresh(self):
         self.listWidget.clear()
         self.commands = select_all_commands(create_connection())
-        for c in self.commands:
-            self.listWidget.addItem(c.name)
+        for i,c in enumerate(self.commands):
+            self.listWidget.addItem(str(i+1)+".   "+c.name)
             
         self.listWidget.setWindowTitle('Scripts')
         self.listWidget.itemClicked.connect(self.click_item)
@@ -186,6 +195,10 @@ class Command():
             return (self.name,str(self.params),self.description,self.create_date,self.last_call,self.function,self.language)
         else:
             return (self.name,str(self.params),self.description,self.create_date,self.alias,self.function,self.language)
+
+    def run(self):
+        run_script(self.name)
+        print('Command is run')
 
 def create_connection(db_file= os.getcwd() + "\\automata.db"):
     try:
@@ -389,8 +402,39 @@ def init_MainMenu():
     widget.show()
     sys.exit(app.exec())
 
-# test_CRUD()
-# run_execution_test()
-#run_update_GUI_test()
-# add_command()
+def start_up():
+    conn = create_connection()
+    with conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM COMMAND,SCHEDULE WHERE ID = COM_ID")
+
+        results = []
+        rows = cur.fetchall()
+
+        for i,row in enumerate(rows):
+            com = Command(rows[i][0],rows[i][1],rows[i][2],rows[i][3],rows[i][4],rows[i][5],rows[i][6],rows[i][7],rows[i][8])
+            date = rows[i][10]
+            date_time_obj = datetime.datetime.strptime(date, '%a %b %d %H:%M:%S %Y')
+            call_type = int(rows[i][11])
+            if call_type == 0:
+                schedule.every(15).seconds.do(com.run)
+            results.append(com)
+            results.append(date_time_obj)
+
+        print(results)
+
 init_MainMenu()
+
+daemon_thread = threading.Thread(target=start_up)
+
+daemon_thread.daemon = True
+
+# daemon_thread.start()
+# daemon_thread.join()
+
+# while len(schedule.jobs) > 0:
+#     schedule.run_pending()
+#     # if not GUI_thread.is_alive():
+#     #     break
+#     # else:
+#     time.sleep(1)
