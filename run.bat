@@ -1,1 +1,1 @@
-python read_db.py%
+python automata.py%

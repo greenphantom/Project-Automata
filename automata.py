@@ -4,6 +4,7 @@ import re
 import shutil
 import sqlite3
 import sys
+import threading
 import time
 from sqlite3 import Error
 from subprocess import PIPE, Popen
@@ -15,8 +16,34 @@ from PyQt5.uic import *
 import schedule
 
 
-def get_date():
-    return str(datetime.datetime.now().ctime())
+def get_date(dt_obj=datetime.datetime.now()):
+    return str(dt_obj.ctime())
+
+def get_date_from_str(date):
+    try: 
+        x = datetime.datetime.strptime(date, '%a %b %d %H:%M:%S %Y')
+        return x
+    except ValueError:
+        x = datetime.datetime.strptime(date, '%Y-%m-%d')
+        return x
+
+def schedule_onetime_job(d_time, job_func, msg=False, *args, **kwargs):
+    d_sec = (d_time-(datetime.datetime.now())).total_seconds()
+    if d_sec < 0: d_sec = 0
+    time.sleep(d_sec)
+    job_func(*args,**kwargs)
+    if msg: print('Finished execution...')
+
+def run_onetime_then_delete(d_time, command, msg=False, *args, **kwargs):
+    d_sec = (d_time-(datetime.datetime.now())).total_seconds()
+    if d_sec < 0: d_sec = 0
+    time.sleep(d_sec)
+    command.run()
+    if msg: print('Finished execution...')
+
+    conn = create_connection()
+    with conn:
+        delete_schedule_by_id(conn,command.id)
 
 class MainMenu(QDialog):
     def __init__(self):
@@ -33,7 +60,13 @@ class MainMenu(QDialog):
 
     @pyqtSlot()
     def on_view_button_clicked(self):
+        self.viewDialog.refresh()
         self.viewDialog.show()
+        self.close()
+
+    @pyqtSlot()
+    def on_close_button_clicked(self):
+        sys.exit()
         self.close()
 
 class InputForm(QDialog):
@@ -65,16 +98,15 @@ class ViewMenu(QDialog):
         loadUi('view_layout.ui',self)
         self.dialog=parent
         self.setWindowTitle('Script Viewer')
-        self.listWidget.resize(300,120)
         self.commands = select_all_commands(create_connection())
-        for c in self.commands:
-            self.listWidget.addItem(c.name)
+        for i,c in enumerate(self.commands):
+            self.listWidget.addItem(str(i+1)+".   "+c.name)
             
         self.listWidget.setWindowTitle('Scripts')
         self.listWidget.itemClicked.connect(self.click_item)
 
     def click_item(self,item):
-        com = list(filter((lambda c: c.name == str(item.text())),self.commands))
+        com = list(filter((lambda c: c.name in (str(item.text()))),self.commands))
         self.updateForm = UpdateForm(com[0],self)
         self.updateForm.show()
         self.close()
@@ -82,17 +114,20 @@ class ViewMenu(QDialog):
     def refresh(self):
         self.listWidget.clear()
         self.commands = select_all_commands(create_connection())
-        for c in self.commands:
-            self.listWidget.addItem(c.name)
+        for i,c in enumerate(self.commands):
+            self.listWidget.addItem(str(i+1)+".   "+c.name)
             
         self.listWidget.setWindowTitle('Scripts')
         self.listWidget.itemClicked.connect(self.click_item)
        
-
     @pyqtSlot()
     def on_back_button_clicked(self):
         self.dialog.show()
         self.close()
+
+    @pyqtSlot()
+    def on_query_button_clicked(self):
+        query_jobs()
 
 class UpdateForm(QDialog):
     def __init__(self,command,parent=None):
@@ -108,6 +143,16 @@ class UpdateForm(QDialog):
         self.alias_field.setText(command.alias)
         self.id = command.id
         self.dialog=parent
+
+        conn = create_connection()
+        with conn:
+            self.sched = select_schedule_by_id(conn,command.id)
+        dt = get_date_from_str(self.sched[0][1])
+        qD = QDate(dt.year,dt.month,dt.day)
+        qT = QTime(dt.hour,dt.minute,dt.second)
+
+        self.datetime_field.setDateTime(QDateTime(qD,qT))
+        self.calltype_field.setCurrentIndex(int(self.sched[0][2])+1)
         self.command=command
 
     def refresh(self):
@@ -115,10 +160,16 @@ class UpdateForm(QDialog):
 
     def update(self):
         command = Command(self.name.text(),self.id,self.param.text(),self.desc.toPlainText(),self.create_field.text(),self.call_field.text(),self.alias_field.text(),self.script.toPlainText(),str(self.comboBox.currentText()))
+        date = self.datetime_field.date()
+        time = self.datetime_field.time()
+        dt = datetime.datetime(date.year(),date.month(),date.day(),time.hour(),time.minute(),time.second())
+        self.sched = (self.id,get_date(dt),int(self.calltype_field.currentIndex())-1)
         conn = create_connection(os.getcwd() + "\\automata.db")
         with conn:
             update_command(conn,command)
+            update_schedule(conn,self.sched)
         self.command = command
+        restart()
     
     @pyqtSlot()
     def on_update_button_clicked(self):
@@ -131,7 +182,7 @@ class UpdateForm(QDialog):
         # Updates the script when the user trys to run it
         self.update()
         self.call_field.setText(get_date())
-        run_script(self.command.name)
+        run_script(self.command.name,create_connection())
         QMessageBox.information(self, "Run script", self.name.text()+" ran in the terminal." )
         self.command = select_command_by_name(create_connection(),self.command.name)[0]
         self.refresh()
@@ -189,6 +240,10 @@ class Command():
         else:
             return (self.name,str(self.params),self.description,self.create_date,self.alias,self.function,self.language)
 
+    def run(self):
+        run_script(self.name,create_connection())
+        print("Command '"+self.name+"' ran successfully at",get_date())
+
 def create_connection(db_file= os.getcwd() + "\\automata.db"):
     try:
         conn = sqlite3.connect(db_file)
@@ -216,6 +271,13 @@ def create_command(conn, command):
     cur.execute(sql, command)
     return cur.lastrowid
 
+def create_schedule(conn, id, dt_obj, call_type):
+    sql = ''' INSERT INTO SCHEDULE(Com_id,Datetime,'Call Type')
+              VALUES(?,?,?) '''
+    cur = conn.cursor()
+    cur.execute(sql, (id,get_date(dt_obj),call_type))
+    return cur.lastrowid
+
 def update_command(conn, command):
     if isinstance(command,Command):
         command = (*command.to_tuple(),command.id)
@@ -223,6 +285,12 @@ def update_command(conn, command):
     sql = "UPDATE COMMAND SET name = ?, parameters = ?, description = ?, created = ?, 'last call' = ?, alias = ?, function = ?, language = ? WHERE id = ?"
     cur = conn.cursor()
     cur.execute(sql, command)
+
+def update_schedule(conn, sched):
+    sched = sched + (sched[0],)
+    sql = "UPDATE SCHEDULE SET Com_id = ?, Datetime = ?, 'Call Type' = ? WHERE Com_id = ?"
+    cur = conn.cursor()
+    cur.execute(sql, sched)
 
 def update_call_by_name(conn, name):
     sql = "UPDATE COMMAND SET 'last call' = '"+get_date()+"' WHERE name = '"+name+"' OR alias = '"+name+"';"
@@ -236,6 +304,11 @@ def delete_command_by_name(conn, name):
 
 def delete_command_by_id(conn, id):
     sql = 'DELETE FROM COMMAND WHERE id=?;'
+    cur = conn.cursor()
+    cur.execute(sql,(id,))
+
+def delete_schedule_by_id(conn, id):
+    sql = 'DELETE FROM SCHEDULE WHERE Com_id=?;'
     cur = conn.cursor()
     cur.execute(sql,(id,))
 
@@ -263,6 +336,18 @@ def select_command_by_name(conn,name,pnt=False):
         results.append(com)
         if pnt:
             print(com)
+
+    return results
+
+def select_schedule_by_id(conn,id):
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM SCHEDULE where Com_id = '"+str(id)+"';")
+
+    results = []
+    rows = cur.fetchall()
+    for i,row in enumerate(rows):
+        s = (rows[i][0],rows[i][1],rows[i][2],)
+        results.append(s)
 
     return results
 
@@ -391,8 +476,71 @@ def init_MainMenu():
     widget.show()
     sys.exit(app.exec())
 
-# test_CRUD()
-# run_execution_test()
-#run_update_GUI_test()
-# add_command()
-init_MainMenu()
+def run_schedules():
+    while 1:
+        schedule.run_pending()
+        # print(schedule.jobs)
+        time.sleep(1)
+
+def restart():
+    schedule.clear()
+    daemon_thread = threading.Thread(target=start_up, args=(True,))
+    daemon_thread.start()
+    daemon_thread.join()
+
+def query_jobs():
+    print('Here are all currently recurring jobs: ')
+    print(schedule.jobs,'\n')
+
+def start_up(restart=False):
+    conn = create_connection()
+    with conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM COMMAND,SCHEDULE WHERE ID = COM_ID")
+
+        results = []
+        rows = cur.fetchall()
+
+        for i,row in enumerate(rows):
+            com = Command(rows[i][0],rows[i][1],rows[i][2],rows[i][3],rows[i][4],rows[i][5],rows[i][6],rows[i][7],rows[i][8])
+            date = rows[i][10]
+            dt_obj = get_date_from_str(date)
+            call_type = int(rows[i][11])
+            if (datetime.datetime.now() > dt_obj and call_type < 1 and not restart) : # Scehduled in the past
+                if call_type == 0:
+                    th = threading.Thread(target=schedule_onetime_job,args=(dt_obj,com.run,))
+                    th.start()
+                elif call_type != -1:
+                    print('Warning: Outdated Script detected. Please check scheduling of script',com.name)
+            else:
+                if call_type == -1: continue # undefined schedule
+                if call_type == 0 and not restart: # Run on start up
+                    th = threading.Thread(target=schedule_onetime_job,args=(dt_obj,com.run,))
+                    th.start()
+                elif call_type == 1: # Run once then never again
+                    th = threading.Thread(target=run_onetime_then_delete,args=(dt_obj,com,))
+                    th.start()
+                elif call_type == 2: # Run Hourly
+                    schedule.every().hour.do(com.run)
+                elif call_type == 3: # Run Daily
+                    schedule.every().day.at(str(dt_obj.time().hour)+':'+str(dt_obj.time().minute)).do(com.run)
+                else:
+                    #print('Call_type not defined...')
+                    continue
+        
+        schedule_thread = threading.Thread(target=run_schedules)
+        schedule_thread.start()
+
+
+daemon_thread = threading.Thread(target=start_up)
+GUI_thread = threading.Thread(target=init_MainMenu)
+
+GUI_thread.daemon = True
+daemon_thread.daemon = True
+
+GUI_thread.start()
+
+daemon_thread.start()
+daemon_thread.join()
+
+GUI_thread.join()

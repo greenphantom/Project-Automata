@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>300</height>
+    <height>327</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -34,6 +34,32 @@
      <width>321</width>
      <height>211</height>
     </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>40</x>
+     <y>30</y>
+     <width>47</width>
+     <height>13</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Scripts</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="query_button">
+   <property name="geometry">
+    <rect>
+     <x>160</x>
+     <y>280</y>
+     <width>75</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Query Jobs</string>
    </property>
   </widget>
  </widget>
