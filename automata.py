@@ -120,11 +120,14 @@ class ViewMenu(QDialog):
         self.listWidget.setWindowTitle('Scripts')
         self.listWidget.itemClicked.connect(self.click_item)
        
-
     @pyqtSlot()
     def on_back_button_clicked(self):
         self.dialog.show()
         self.close()
+
+    @pyqtSlot()
+    def on_query_button_clicked(self):
+        query_jobs()
 
 class UpdateForm(QDialog):
     def __init__(self,command,parent=None):
@@ -481,11 +484,15 @@ def run_schedules():
 
 def restart():
     schedule.clear()
-    daemon_thread = threading.Thread(target=start_up)
+    daemon_thread = threading.Thread(target=start_up, args=(True,))
     daemon_thread.start()
     daemon_thread.join()
 
-def start_up():
+def query_jobs():
+    print('Here are all currently recurring jobs: ')
+    print(schedule.jobs,'\n')
+
+def start_up(restart=False):
     conn = create_connection()
     with conn:
         cur = conn.cursor()
@@ -499,13 +506,15 @@ def start_up():
             date = rows[i][10]
             dt_obj = get_date_from_str(date)
             call_type = int(rows[i][11])
-            if (datetime.datetime.now() > dt_obj and call_type < 1) : # Scehduled in the past
-                print('late af')
+            if (datetime.datetime.now() > dt_obj and call_type < 1 and not restart) : # Scehduled in the past
                 if call_type == 0:
                     th = threading.Thread(target=schedule_onetime_job,args=(dt_obj,com.run,))
                     th.start()
+                elif call_type != -1:
+                    print('Warning: Outdated Script detected. Please check scheduling of script',com.name)
             else:
-                if call_type == 0: # Run on start up
+                if call_type == -1: continue # undefined schedule
+                if call_type == 0 and not restart: # Run on start up
                     th = threading.Thread(target=schedule_onetime_job,args=(dt_obj,com.run,))
                     th.start()
                 elif call_type == 1: # Run once then never again
@@ -516,7 +525,8 @@ def start_up():
                 elif call_type == 3: # Run Daily
                     schedule.every().day.at(str(dt_obj.time().hour)+':'+str(dt_obj.time().minute)).do(com.run)
                 else:
-                    print('Call_type not defined...')
+                    #print('Call_type not defined...')
+                    continue
         
         schedule_thread = threading.Thread(target=run_schedules)
         schedule_thread.start()

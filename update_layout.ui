@@ -327,7 +327,7 @@
    </item>
    <item>
     <property name="text">
-     <string>Once</string>
+     <string>Once, on startup</string>
     </property>
    </item>
    <item>
