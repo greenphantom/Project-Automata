@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: rgb(38, 38, 38);
+color: rgb(255, 255, 255);</string>
+  </property>
   <widget class="QTextEdit" name="script">
    <property name="geometry">
     <rect>
@@ -121,6 +125,9 @@
      <width>111</width>
      <height>23</height>
     </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: rgb(155, 155, 255);</string>
    </property>
    <property name="text">
     <string>Update</string>
@@ -258,6 +265,9 @@
      <height>23</height>
     </rect>
    </property>
+   <property name="styleSheet">
+    <string notr="true">color: rgb(0, 200, 0);</string>
+   </property>
    <property name="text">
     <string>Run</string>
    </property>
@@ -270,6 +280,9 @@
      <width>75</width>
      <height>23</height>
     </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: rgb(255, 0, 0);</string>
    </property>
    <property name="text">
     <string>Delete</string>

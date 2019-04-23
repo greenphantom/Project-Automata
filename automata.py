@@ -9,6 +9,7 @@ import time
 from sqlite3 import Error
 from subprocess import PIPE, Popen
 
+from PyQt5 import QtGui
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.uic import *
@@ -50,6 +51,7 @@ class MainMenu(QDialog):
         super(MainMenu,self).__init__()
         loadUi('main_layout.ui',self)
         self.setWindowTitle('Automata Script Manager')
+        self.setWindowIcon(QtGui.QIcon('Automata.jpg'))
         self.inputDialog = InputForm(self)
         self.viewDialog = ViewMenu(self)
     
@@ -73,7 +75,8 @@ class InputForm(QDialog):
     def __init__(self,parent=None):
         super(InputForm,self).__init__()
         loadUi('input_layout.ui',self)
-        self.setWindowTitle('Input Form')
+        self.setWindowTitle('Create New Script')
+        self.setWindowIcon(QtGui.QIcon('Automata.jpg'))
         self.create_field.setText(get_date())
         self.dialog=parent
     
@@ -97,7 +100,8 @@ class ViewMenu(QDialog):
         super(ViewMenu,self).__init__()
         loadUi('view_layout.ui',self)
         self.dialog=parent
-        self.setWindowTitle('Script Viewer')
+        self.setWindowTitle('View Scripts')
+        self.setWindowIcon(QtGui.QIcon('Automata.jpg'))
         self.commands = select_all_commands(create_connection())
         for i,c in enumerate(self.commands):
             self.listWidget.addItem(str(i+1)+".   "+c.name)
@@ -133,7 +137,8 @@ class UpdateForm(QDialog):
     def __init__(self,command,parent=None):
         super(UpdateForm,self).__init__()
         loadUi('update_layout.ui',self)
-        self.setWindowTitle('Update Form')
+        self.setWindowTitle('Manage Script - '+command.name)
+        self.setWindowIcon(QtGui.QIcon('Automata.jpg'))
         self.name.setText(command.name)
         self.param.setText(command.params)
         self.desc.setText(command.description)
@@ -242,7 +247,7 @@ class Command():
 
     def run(self):
         run_script(self.name,create_connection())
-        print("Command '"+self.name+"' ran successfully at",get_date())
+        print("Command '"+self.name+"' ran successfully at",datetime.datetime.now())
 
 def create_connection(db_file= os.getcwd() + "\\automata.db"):
     try:
@@ -400,6 +405,8 @@ def run_script(script_name,conn=create_connection(os.getcwd() + "\\automata.db")
         execute_bin_contents(conn)
 
 def execute_bin_contents(conn,rm=True):
+    print()
+    print('=='*30)
     print('Executing content within bin: ')
     for item in os.listdir(os.getcwd()+"\\bin\\"):
         full_item = os.getcwd()+"\\bin\\"+item
@@ -414,8 +421,9 @@ def execute_bin_contents(conn,rm=True):
             update_call_by_name(conn,item.replace('.py',''))
 
     if (rm):
-        print('Deleting bin contents...\n')
+        print('Deleting bin contents...')
         dump_bin()
+    print('=='*30,'\n')
 
 def add_command():
     app = QApplication(sys.argv)
@@ -484,13 +492,15 @@ def run_schedules():
 
 def restart():
     schedule.clear()
-    daemon_thread = threading.Thread(target=start_up, args=(True,))
-    daemon_thread.start()
-    daemon_thread.join()
+    start_up(True)
 
 def query_jobs():
+    print()
+    print('=='*30)
     print('Here are all currently recurring jobs: ')
-    print(schedule.jobs,'\n')
+    for j in schedule.jobs:
+        print(j)
+    print('=='*30,'\n')
 
 def start_up(restart=False):
     conn = create_connection()
@@ -514,7 +524,7 @@ def start_up(restart=False):
                     print('Warning: Outdated Script detected. Please check scheduling of script',com.name)
             else:
                 if call_type == -1: continue # undefined schedule
-                if call_type == 0 and not restart: # Run on start up
+                elif call_type == 0 and not restart: # Run on start up
                     th = threading.Thread(target=schedule_onetime_job,args=(dt_obj,com.run,))
                     th.start()
                 elif call_type == 1: # Run once then never again
@@ -532,8 +542,8 @@ def start_up(restart=False):
         schedule_thread.start()
 
 
-daemon_thread = threading.Thread(target=start_up)
-GUI_thread = threading.Thread(target=init_MainMenu)
+daemon_thread = threading.Thread(target=start_up,name="daemon")
+GUI_thread = threading.Thread(target=init_MainMenu,name="GUI")
 
 GUI_thread.daemon = True
 daemon_thread.daemon = True

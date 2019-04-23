@@ -6,21 +6,28 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>392</width>
-    <height>315</height>
+    <width>401</width>
+    <height>319</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: rgb(38, 38, 38);</string>
+  </property>
   <widget class="QLabel" name="title_label">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>30</y>
-     <width>361</width>
-     <height>81</height>
+     <x>40</x>
+     <y>10</y>
+     <width>321</width>
+     <height>41</height>
     </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">font: 16pt &quot;Verdana&quot;;
+color: rgb(255, 0, 0);</string>
    </property>
    <property name="text">
     <string>Automata Script Manager</string>
@@ -32,27 +39,17 @@
     <set>Qt::AlignCenter</set>
    </property>
   </widget>
-  <widget class="QPushButton" name="create_button">
-   <property name="geometry">
-    <rect>
-     <x>160</x>
-     <y>130</y>
-     <width>81</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Create Script</string>
-   </property>
-  </widget>
   <widget class="QPushButton" name="view_button">
    <property name="geometry">
     <rect>
      <x>160</x>
-     <y>170</y>
+     <y>240</y>
      <width>81</width>
      <height>23</height>
     </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: rgb(255, 255, 255);</string>
    </property>
    <property name="text">
     <string>View Scripts</string>
@@ -62,13 +59,52 @@
    <property name="geometry">
     <rect>
      <x>160</x>
-     <y>210</y>
+     <y>280</y>
      <width>81</width>
      <height>23</height>
     </rect>
    </property>
+   <property name="styleSheet">
+    <string notr="true">color: rgb(255, 255, 255);</string>
+   </property>
    <property name="text">
     <string>Close</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>130</x>
+     <y>60</y>
+     <width>141</width>
+     <height>121</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>Automata.jpg</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="create_button">
+   <property name="geometry">
+    <rect>
+     <x>160</x>
+     <y>200</y>
+     <width>81</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: rgb(255, 255, 255);
+border-color: rgb(255, 0, 0);</string>
+   </property>
+   <property name="text">
+    <string>Create Script</string>
    </property>
   </widget>
  </widget>
