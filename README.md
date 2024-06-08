@@ -46,6 +46,7 @@ The Automata Project is a Python-based application designed to manage and execut
     ```
 2. Use the GUI to create, view, update, and run scripts.
 3. Should open to this:
+
 ![alt text](./sources/image.png)
 
 ### Creating a New Script
@@ -57,12 +58,14 @@ The Automata Project is a Python-based application designed to manage and execut
 
 - Click on the "View" button to see the list of scripts.
 - Click on a script to manage it.
--![alt text](./sources/image-1.png)
+
+![alt text](./sources/image-1.png)
 
 ### Updating a Script
 
 - In the view menu, click on a script to open the update form.
 - Modify the details and click "Update" to save changes.
+
 ![alt text](./sources/image-2.png)
 
 ### Running a Script
