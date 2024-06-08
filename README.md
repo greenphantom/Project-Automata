@@ -12,8 +12,6 @@ Automata Script Manager is a tool for managing and running scripts with a user-f
   - [Updating a Script](#updating-a-script)
   - [Running a Script](#running-a-script)
 - [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
 
 ## Overview
 The Automata Project is a Python-based application designed to manage and execute scripts. It provides a graphical user interface (GUI) for creating, updating, viewing, and running scripts. The project leverages PyQt for the GUI components and uses a SQLite database to store script information.
