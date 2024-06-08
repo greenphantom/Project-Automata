@@ -2,13 +2,15 @@
 
 Automata Script Manager is a tool for managing and running scripts with a user-friendly interface.
 
-
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Features](#features)
+  - [Creating a New Script](#creating-a-new-script)
+  - [Viewing Scripts](#viewing-scripts)
+  - [Updating a Script](#updating-a-script)
+  - [Running a Script](#running-a-script)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -65,12 +67,6 @@ The Automata Project is a Python-based application designed to manage and execut
 
 - In the update form, click "Run" to execute the script.
 
-## Features
-
-- Create, view, update, and run scripts.
-- User-friendly GUI built with PyQt.
-- Manage script schedules.
-
 ## Contributing
 
 Contributions are welcome! Please follow these steps:
@@ -89,11 +85,3 @@ Contributions are welcome! Please follow these steps:
     git push origin feature-branch
     ```
 5. Open a pull request.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Contact
-
-For any questions or suggestions, please contact [your-email@example.com](mailto:your-email@example.com).
